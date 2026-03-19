@@ -151,7 +151,7 @@
   </div>
 </div>
 <script>
-const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbydwGGoSjV2rDmjM75MRM4e0iVlPh8AqmZKpzmgOagbPXIKwNwFFh-5wussBQA_lO0Htg/exec';
+const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbzaPwC-JBNEG1MtZ8yjQqD6G1IJY1rdBm5YFNGcUO9oOjwq1yz3v7PWbnnl9wLAjWBaVw/exec';
 const EMAIL_SUPPORT='supporto.rinnovosmartphone@a2a.it';
 let UTENTI=[],IMEI_PER_MODELLO={'Samsung A56':[],'Samsung Xcover 7':[]};
 let selectedUser=null,selectedIMEI=null,selectedModello=null,firmaVuota=true;
@@ -220,21 +220,21 @@ async function caricaDatiDaDrive(){
     if(el){el.style.cssText='display:flex;align-items:center;gap:10px;background:var(--blue-light);border:1px solid var(--blue-mid);border-radius:8px;padding:12px 18px;margin-bottom:16px;font-size:13px;color:var(--blue);';
       el.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;flex-shrink:0"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Caricamento utenti e IMEI da Drive...';}
 
-    const rU=await fetchT(APPS_SCRIPT_URL+'?type=utenti');
-    const jU=await rU.json();
-    if(jU.success){
-      UTENTI=parseCSV(jU.data).map(r=>({
+    const rU=await fetchT('https://raw.githubusercontent.com/supportorinnovosmartphone-sys/modulo/main/utenti.csv');
+    const jU=await rU.text();
+    if(jU){
+      UTENTI=parseCSV(jU).map(r=>({
         nome:r.nome||'',email:r.email||'',matricola:r.matricola||'',
         societa:r.societa||r.societa_di_appartenenza||'',
         modello_nuovo:r.modello_nuovo||''
       })).filter(u=>u.nome);
       localStorage.setItem(CACHE_KEY_UTENTI, JSON.stringify(UTENTI));
-    } else throw new Error(jU.error||'Errore utenti');
+    } else throw new Error('Errore caricamento utenti');
 
-    const rI=await fetchT(APPS_SCRIPT_URL+'?type=imei');
-    const jI=await rI.json();
-    if(jI.success){
-      const imeiRows=parseCSV(jI.data).map(r=>({imei:(r.imei||'').trim(),modello:(r.modello||'')})).filter(r=>r.imei);
+    const rI=await fetchT('https://raw.githubusercontent.com/supportorinnovosmartphone-sys/modulo/main/imei.csv');
+    const jI=await rI.text();
+    if(jI){
+      const imeiRows=parseCSV(jI).map(r=>({imei:(r.imei||'').trim(),modello:(r.modello||'')})).filter(r=>r.imei);
       IMEI_PER_MODELLO={'Samsung A56':[],'Samsung Xcover 7':[]};
       imeiRows.forEach(r=>{
         const mod=r.modello.toLowerCase();
@@ -243,7 +243,7 @@ async function caricaDatiDaDrive(){
       });
       localStorage.setItem(CACHE_KEY_IMEI, JSON.stringify(imeiRows));
       localStorage.setItem(CACHE_KEY_TIME, now.toString());
-    } else throw new Error(jI.error||'Errore IMEI');
+    } else throw new Error('Errore caricamento IMEI');
 
     if(el)el.style.display='none';
     console.log('Dati da Drive — Utenti:',UTENTI.length,'A56:',IMEI_PER_MODELLO['Samsung A56'].length,'Xcover:',IMEI_PER_MODELLO['Samsung Xcover 7'].length);
