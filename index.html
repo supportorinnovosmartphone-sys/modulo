@@ -492,7 +492,7 @@ async function inviaModulo(){
   // Salva i dati per il mailto manuale
   window._mailtoData={
     sogg:encodeURIComponent('Modulo Assegnazione - '+email),
-    corpo:encodeURIComponent('Gentile team,\n\nIn allegato il modulo di assegnazione del dispositivo aziendale.\n\nAssegnatario: '+nome+'\nMatricola: '+matricola+'\nModello: '+modello+'\nIMEI: '+imei+'\nData: '+data+'\n\nICT A2A'),
+    corpo:encodeURIComponent('Gentile Utente,\n\nIn allegato il modulo di assegnazione del dispositivo aziendale.\n\nAssegnatario: '+nome+'\nMatricola: '+matricola+'\nModello: '+modello+'\nIMEI: '+imei+'\nData: '+data+'\n\nTeam Supporto Rinnovo Smartphone'),
    };
   window._registroData={nome,matricola,email,modello,imei,dataOggi:data,filename:fn};
   const btnE=document.getElementById('btn-invia-email');
