@@ -230,7 +230,7 @@ const CSV_ASSEGNATI='https://raw.githubusercontent.com/supportorinnovosmartphone
 const CACHE_TTL=24*60*60*1000;
 
 let UTENTI=[], ASSEGNATI={};
-let selectedUser=null, selectedDevice=null, firmaVuota=true, manualOpen=false;
+let selectedUser=null, selectedDevices=[], firmaVuota=true, manualOpen=false;
 const oggi=new Date();
 document.getElementById('header-date').textContent=oggi.toLocaleDateString('it-IT',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
@@ -385,7 +385,7 @@ function renderImeiOptions(matricola){
   const searchBox=document.getElementById('imei-search');
   container.innerHTML='';
   if(searchBox)searchBox.value='';
-  selectedDevice=null;
+  selectedDevices=[];
 
   const entry=ASSEGNATI[matricola];
   const devices=entry?entry.devices||[]:[];
@@ -427,9 +427,13 @@ function renderDeviceOptions(devices){
     opt.className='imei-option';
     opt.innerHTML=`<div class="imei-radio"></div><div class="imei-info"><div class="imei-code">${dev.imei}</div><div class="imei-model">${dev.modello}</div></div>`;
     opt.addEventListener('click',()=>{
-      document.querySelectorAll('.imei-option').forEach(o=>o.classList.remove('selected'));
-      opt.classList.add('selected');
-      selectedDevice=dev;
+      if(opt.classList.contains('selected')){
+        opt.classList.remove('selected');
+        selectedDevices=selectedDevices.filter(d=>d.imei!==dev.imei);
+      } else {
+        opt.classList.add('selected');
+        selectedDevices.push(dev);
+      }
       document.getElementById('input-imei-manual').value='';
       document.getElementById('select-modello-manual').value='';
       checkFormValid();
@@ -450,17 +454,6 @@ function toggleManual(){
 }
 
 function onManualInput(){
-  const imei=document.getElementById('input-imei-manual').value.trim();
-  const modello=document.getElementById('select-modello-manual').value;
-  if(imei&&modello){
-    // deseleziona eventuali opzioni dalla lista
-    document.querySelectorAll('.imei-option').forEach(o=>o.classList.remove('selected'));
-    selectedDevice={imei,modello};
-  }else{
-    // se manuale non completo, lascia la selezione dalla lista
-    const anySelected=document.querySelector('.imei-option.selected');
-    if(!anySelected) selectedDevice=null;
-  }
   checkFormValid();
 }
 
@@ -475,7 +468,7 @@ function clearUserFields(resetInput=true){
   document.getElementById('input-imei-manual').value='';
   document.getElementById('select-modello-manual').value='';
   if(manualOpen){manualOpen=false;document.getElementById('manual-fields').className='manual-fields';document.getElementById('manual-arrow').style.transform='rotate(0deg)';}
-  selectedDevice=null;
+  selectedDevices=[];
   checkFormValid();
 }
 
@@ -514,8 +507,14 @@ function clearFirma(){
   checkFormValid();
 }
 
+function manualDeviceOk(){
+  const imei=document.getElementById('input-imei-manual').value.trim();
+  const modello=document.getElementById('select-modello-manual').value;
+  return imei.length>=5&&modello!=='';
+}
+
 function checkFormValid(){
-  const ok=selectedUser&&selectedDevice&&!firmaVuota;
+  const ok=selectedUser&&(selectedDevices.length>0||manualDeviceOk())&&!firmaVuota;
   document.getElementById('btn-invia').disabled=!ok;
   document.getElementById('status-badge').innerHTML=ok?'<span class="filled-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="12" height="12"><path d="M5 13l4 4L19 7"/></svg>Pronto</span>':'';
 }
@@ -535,9 +534,21 @@ async function uploadToDrive(pdfBlob,filename){
 async function inviaModulo(){
   const nome=selectedUser.nome,email=selectedUser.email;
   const matricola=selectedUser.matricola,societa=selectedUser.societa;
-  const imei=selectedDevice.imei,modello=selectedDevice.modello;
   const note=document.getElementById('input-note').value.trim();
   const data=oggi.toLocaleDateString('it-IT');
+  // Costruisci lista dispositivi (selezione + eventuale manuale)
+  const allDevices=[...selectedDevices];
+  const imeiManuale=document.getElementById('input-imei-manual').value.trim();
+  const modelloManuale=document.getElementById('select-modello-manual').value;
+  if(imeiManuale&&modelloManuale) allDevices.push({imei:imeiManuale,modello:modelloManuale});
+  if(allDevices.length===0) return;
+  // Salva dati per il registro dismissioni (usati in inviaEmail)
+  window._dismissioneData={
+    nome,matricola,email,
+    devices:allDevices,
+    filename:'Modulo_Dismissione_'+nome.replace(/[^a-zA-Z0-9]/g,'_')+'_'+data.replace(/\//g,'-')+'.pdf',
+    dataOggi:data
+  };
 
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
@@ -567,15 +578,17 @@ async function inviaModulo(){
     xc+=col.w;
   });y+=12;
   const dH=18;
-  const rowVals=['Dispositivo di\ncomunicazione',modello,imei,'','','Vodafone'];
-  rowVals.forEach((val,ci)=>{
-    const xPos=cols.slice(0,ci).reduce((s,col)=>s+col.w,mL);
-    doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.rect(xPos,y,cols[ci].w,dH,'S');
-    doc.setFont('helvetica','normal');doc.setFontSize(7.5);
-    const ls2=val.split('\n');
-    if(ls2.length===2){doc.text(ls2[0],xPos+2,y+6);doc.text(ls2[1],xPos+2,y+12);}
-    else{const wrapped=doc.splitTextToSize(val,cols[ci].w-4);doc.text(wrapped,xPos+2,y+6);}
-  });y+=dH+6;
+  allDevices.forEach(device=>{
+    const rowVals=['Dispositivo di\ncomunicazione',device.modello,device.imei,'','','Vodafone'];
+    rowVals.forEach((val,ci)=>{
+      const xPos=cols.slice(0,ci).reduce((s,col)=>s+col.w,mL);
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.rect(xPos,y,cols[ci].w,dH,'S');
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+      const ls2=val.split('\n');
+      if(ls2.length===2){doc.text(ls2[0],xPos+2,y+6);doc.text(ls2[1],xPos+2,y+12);}
+      else{const wrapped=doc.splitTextToSize(val,cols[ci].w-4);doc.text(wrapped,xPos+2,y+6);}
+    });y+=dH;
+  });y+=6;
   if(note){
     doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.text('Note:',mL,y);
     doc.setFont('helvetica','normal');doc.text(note,mL+12,y);y+=8;
@@ -593,17 +606,45 @@ async function inviaModulo(){
   doc.save(fn);
   uploadToDrive(doc.output('blob'),fn);
 
+  const devicesStr=allDevices.map(d=>d.modello+' / IMEI: '+d.imei).join('\n');
   window._mailtoData={
     sogg:encodeURIComponent('Dismissione Device - '+email),
-    corpo:encodeURIComponent('Gentile team,\n\nIn allegato il modulo di dismissione del dispositivo aziendale.\n\nConsegnante: '+nome+'\nMatricola: '+matricola+'\nModello: '+modello+'\nIMEI: '+imei+(note?'\nNote: '+note:'')+'\nData: '+data+'\n\nICT A2A')
+    corpo:encodeURIComponent('Gentile team,\n\nIn allegato il modulo di dismissione del dispositivo aziendale.\n\nConsegnante: '+nome+'\nMatricola: '+matricola+'\n\nDispositivi restituiti:\n'+devicesStr+(note?'\n\nNote: '+note:'')+'\n\nData: '+data+'\n\nICT A2A')
   };
 
   const btnE=document.getElementById('btn-invia-email');
   if(btnE){btnE.disabled=false;btnE.style.background='var(--accent)';btnE.innerHTML='<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg> Invia email';}
   const btnN=document.getElementById('btn-nuovo-modulo');
   if(btnN){btnN.disabled=true;btnN.style.cssText='background:var(--gray-2);color:var(--gray-3);border:1.5px solid var(--gray-2);border-radius:8px;padding:13px 24px;font-family:\'IBM Plex Sans\',sans-serif;font-size:14px;font-weight:600;cursor:not-allowed;display:flex;align-items:center;gap:8px;';}
-  document.getElementById('success-msg').innerHTML='Dismissione per <strong>'+nome+'</strong><br>Modello: <strong>'+modello+'</strong> &middot; IMEI: <strong>'+imei+'</strong>';
+  const devSummary=allDevices.map(d=>'<strong>'+d.modello+'</strong> &middot; IMEI: '+d.imei).join('<br>');
+  document.getElementById('success-msg').innerHTML='Dismissione per <strong>'+nome+'</strong><br>'+devSummary;
   document.getElementById('success-overlay').classList.add('show');
+}
+
+async function salvaRigaDismissioni(dati){
+  const orario=new Date().toLocaleString('it-IT');
+  try{
+    await fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        soloRegistro:true,
+        tipoDismissione:true,
+        nome:dati.nome,
+        matricola:dati.matricola,
+        email:dati.email,
+        modello:dati.modello,
+        imei:dati.imei,
+        filename:dati.filename,
+        dataOggi:dati.dataOggi,
+        orario:orario
+      })
+    });
+    console.log('Dismissione registrata: '+dati.imei);
+  }catch(err){
+    console.error('Errore salva dismissione:',err);
+  }
 }
 
 function inviaEmail(){
@@ -611,6 +652,21 @@ function inviaEmail(){
     const a=document.createElement('a');
     a.href='mailto:'+EMAIL_SUPPORT+'?subject='+window._mailtoData.sogg+'&body='+window._mailtoData.corpo;
     a.click();
+    // Salva una riga per ogni dispositivo dismesso
+    if(window._dismissioneData){
+      window._dismissioneData.devices.forEach(dev=>{
+        salvaRigaDismissioni({
+          nome:window._dismissioneData.nome,
+          matricola:window._dismissioneData.matricola,
+          email:window._dismissioneData.email,
+          modello:dev.modello,
+          imei:dev.imei,
+          filename:window._dismissioneData.filename,
+          dataOggi:window._dismissioneData.dataOggi
+        });
+      });
+      window._dismissioneData=null;
+    }
     const btnEmail=document.getElementById('btn-invia-email');
     if(btnEmail){btnEmail.innerHTML='<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg> Email inviata';btnEmail.style.background='var(--green)';btnEmail.disabled=true;}
     const btnNuovo=document.getElementById('btn-nuovo-modulo');
@@ -621,7 +677,7 @@ function inviaEmail(){
 function chiudiSuccesso(){document.getElementById('success-overlay').classList.remove('show');resetForm();}
 
 function resetForm(){
-  selectedUser=null;selectedDevice=null;firmaVuota=true;
+  selectedUser=null;selectedDevices=[];firmaVuota=true;
   clearUserFields(true);
   document.getElementById('input-note').value='';
   document.getElementById('status-badge').innerHTML='';
