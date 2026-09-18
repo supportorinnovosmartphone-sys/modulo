@@ -88,9 +88,9 @@
   <div style="width:100px;text-align:right;"><span id="status-badge"></span></div>
 </div>
 
-<div class="switch-bar">
-  <span>Hai un dispositivo da assegnare?</span>
-  <a href="index.html" class="switch-btn">
+<div style="background:#e8f0fa;border-bottom:1px solid #c0d4ef;padding:8px 32px;display:flex;align-items:center;justify-content:flex-end;gap:12px;">
+  <span style="font-size:12px;color:#004B93;font-weight:500;">Hai un dispositivo da assegnare?</span>
+  <a href="index.html" style="background:#004B93;color:#ffffff;border:none;border-radius:6px;padding:6px 16px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
     <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
     Modulo Assegnazione
   </a>
@@ -499,7 +499,7 @@ function clearFirma(){
   firmaVuota=true;firmaWrap.classList.remove('has-firma');
   const btn=document.getElementById('btn-clear-firma');btn.style.opacity='0';btn.style.pointerEvents='none';
   const fs=document.getElementById('firma-status');fs.style.color='var(--gray-3)';
-  fs.innerHTML='<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> La firma è obbligatoria prima dell'invio';
+  fs.innerHTML='<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> La firma è obbligatoria prima dell\'invio';
   checkFormValid();
 }
 
