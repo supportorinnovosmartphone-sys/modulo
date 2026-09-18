@@ -233,9 +233,16 @@ const oggi=new Date();
 document.getElementById('header-date').textContent=oggi.toLocaleDateString('it-IT',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
 function parseCSV(text){
-  const lines=text.trim().split(/\r?\n/);
-  const headers=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/ /g,'_'));
+  // Remove BOM if present
+  text=text.replace(/^﻿/,'');
+  const lines=text.trim().split(/?
+/);
+  const headers=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/ /g,'_').replace(/^"|"$/g,''));
   return lines.slice(1).filter(l=>l.trim()).map(line=>{
+    // If entire line is quoted, strip outer quotes first
+    if(line.startsWith('"')&&line.endsWith('"')&&line.indexOf('","')===-1){
+      line=line.slice(1,-1);
+    }
     const vals=[];let cur='',inQ=false;
     for(let i=0;i<line.length;i++){
       if(line[i]==='"'){inQ=!inQ;}
