@@ -268,70 +268,58 @@ async function caricaDati(){
   const cacheOk=(now-lastFetch)<CACHE_TTL;
 
   if(cacheOk){
-    const cu=localStorage.getItem('dis_utenti');
     const ca=localStorage.getItem('dis_assegnati');
-    if(cu){
-      try{UTENTI=JSON.parse(cu);}catch(e){UTENTI=[];}
-    }
     if(ca){
-      try{ASSEGNATI=JSON.parse(ca);}catch(e){ASSEGNATI={};}
-    }
-    if(cu){
-      if(el)el.style.display='none';
-      console.log('Da cache — Utenti:',UTENTI.length);
-      return;
+      try{
+        ASSEGNATI=JSON.parse(ca);
+        // Rebuild UTENTI from ASSEGNATI
+        UTENTI=Object.values(ASSEGNATI).map(u=>({nome:u.nome,email:u.email,matricola:u.matricola,societa:u.societa}));
+        if(el)el.style.display='none';
+        console.log('Da cache — Utenti:',UTENTI.length);
+        return;
+      }catch(e){ASSEGNATI={};UTENTI=[];}
     }
   }
 
-  // Fetch utenti (obbligatorio)
+  // Fetch assegnati.csv — unica sorgente dati
   try{
-    const rU=await fetchT(CSV_UTENTI);
-    const tU=await rU.text();
-    UTENTI=parseCSV(tU).map(r=>({
-      nome:r.nome||'',email:r.email||'',matricola:r.matricola||'',
-      societa:r.societa||r.societa_di_appartenenza||''
-    })).filter(u=>u.nome);
-    localStorage.setItem('dis_utenti',JSON.stringify(UTENTI));
+    const rA=await fetchT(CSV_ASSEGNATI);
+    if(!rA.ok) throw new Error('HTTP '+rA.status);
+    const tA=await rA.text();
+    const rows=parseCSV(tA);
+    ASSEGNATI={};
+    rows.forEach(r=>{
+      const mat=(r.matricola||'').trim();
+      if(!mat)return;
+      const imeis=(r.imei||'').split(';').map(s=>s.trim()).filter(Boolean);
+      const modelli=(r.modello||'').split(';').map(s=>s.trim()).filter(Boolean);
+      const devices=imeis.map((im,i)=>({imei:im,modello:modelli[i]||'N/D'}));
+      ASSEGNATI[mat]={
+        nome:(r.nome||'').trim(),
+        email:(r.email||'').trim(),
+        matricola:mat,
+        societa:(r.societa||r.societa_di_appartenenza||'').trim(),
+        devices
+      };
+    });
+    // Build UTENTI list for autocomplete
+    UTENTI=Object.values(ASSEGNATI).map(u=>({nome:u.nome,email:u.email,matricola:u.matricola,societa:u.societa})).filter(u=>u.nome);
+    localStorage.setItem('dis_assegnati',JSON.stringify(ASSEGNATI));
+    localStorage.setItem('dis_ts',now.toString());
     if(el)el.style.display='none';
-    console.log('Utenti caricati:',UTENTI.length);
+    console.log('Assegnati caricati:',UTENTI.length,'utenti');
   }catch(err){
-    console.error('Errore utenti:',err);
+    console.error('Errore assegnati:',err);
     if(el){
       el.style.cssText='display:flex;align-items:center;gap:10px;background:var(--red-light);border:1px solid var(--red);border-radius:8px;padding:12px 18px;margin-bottom:16px;font-size:13px;color:var(--red);';
-      el.innerHTML='<span>Errore caricamento anagrafica: '+(err.name==='AbortError'?'Timeout':''+err.message)+'</span><button onclick="caricaDati()" style="margin-left:auto;background:var(--red);color:white;border:none;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">Riprova</button>';
+      el.innerHTML='<span>Errore caricamento assegnati.csv: '+(err.name==='AbortError'?'Timeout':''+err.message)+'</span><button onclick="caricaDati()" style="margin-left:auto;background:var(--red);color:white;border:none;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">Riprova</button>';
     }
-    return;
-  }
-
-  // Fetch assegnati (opzionale — se non esiste ancora non blocca)
-  try{
-    const rA=await fetchT(CSV_ASSEGNATI,8000);
-    if(rA.ok){
-      const tA=await rA.text();
-      const rows=parseCSV(tA);
-      ASSEGNATI={};
-      rows.forEach(r=>{
-        const mat=(r.matricola||'').trim();
-        if(!mat)return;
-        const imeis=(r.imei||'').split(';').map(s=>s.trim()).filter(Boolean);
-        const modelli=(r.modello||'').split(';').map(s=>s.trim()).filter(Boolean);
-        const devices=imeis.map((im,i)=>({imei:im,modello:modelli[i]||'N/D'}));
-        if(!ASSEGNATI[mat])ASSEGNATI[mat]=[];
-        ASSEGNATI[mat].push(...devices);
-      });
-      localStorage.setItem('dis_assegnati',JSON.stringify(ASSEGNATI));
-      localStorage.setItem('dis_ts',now.toString());
-      console.log('Assegnati caricati, matricole:',Object.keys(ASSEGNATI).length);
-    }
-  }catch(err){
-    console.warn('assegnati.csv non disponibile (normale se non ancora creato)');
-    ASSEGNATI={};
   }
 }
 caricaDati();
 
 function aggiornaDati(){
-  ['dis_utenti','dis_assegnati','dis_ts'].forEach(k=>localStorage.removeItem(k));
+  ['dis_assegnati','dis_ts'].forEach(k=>localStorage.removeItem(k));
   UTENTI=[];ASSEGNATI={};
   caricaDati();
 }
@@ -391,7 +379,8 @@ function renderImeiOptions(matricola){
   container.innerHTML='';
   selectedDevice=null;
 
-  const devices=(ASSEGNATI[matricola]||[]);
+  const entry=ASSEGNATI[matricola];
+  const devices=entry?entry.devices||[]:[];
   hint.style.display='none';
 
   if(devices.length>0){
