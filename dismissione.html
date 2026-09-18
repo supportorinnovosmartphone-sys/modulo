@@ -131,6 +131,7 @@
       <div id="imei-list" style="display:none;">
         <div class="field" style="margin-bottom:16px;">
           <label>Seleziona dispositivo <span class="req">*</span></label>
+          <input type="text" id="imei-search" placeholder="Cerca per IMEI o modello..." style="margin-bottom:10px;" autocomplete="off">
           <div id="imei-options"></div>
         </div>
       </div>
@@ -154,9 +155,10 @@
               <label>Modello <span class="req">*</span></label>
               <select id="select-modello-manual" onchange="onManualInput()">
                 <option value="">Seleziona modello...</option>
-                <option value="Samsung A56">Samsung A56</option>
-                <option value="Samsung Xcover 7">Samsung Xcover 7</option>
+                <option value="Samsung Tab Active 3">Samsung Tab Active 3</option>
                 <option value="Samsung Tab Active 5">Samsung Tab Active 5</option>
+                <option value="Samsung Galaxy Tab S8">Samsung Galaxy Tab S8</option>
+                <option value="Altro">Altro</option>
               </select>
             </div>
           </div>
@@ -380,7 +382,9 @@ function renderImeiOptions(matricola){
   const hint=document.getElementById('imei-hint');
   const manual=document.getElementById('manual-section');
   const container=document.getElementById('imei-options');
+  const searchBox=document.getElementById('imei-search');
   container.innerHTML='';
+  if(searchBox)searchBox.value='';
   selectedDevice=null;
 
   const entry=ASSEGNATI[matricola];
@@ -390,34 +394,48 @@ function renderImeiOptions(matricola){
   if(devices.length>0){
     list.style.display='block';
     noDevices.style.display='none';
-    devices.forEach(dev=>{
-      const opt=document.createElement('div');
-      opt.className='imei-option';
-      opt.innerHTML=`<div class="imei-radio"></div><div class="imei-info"><div class="imei-code">${dev.imei}</div><div class="imei-model">${dev.modello}</div></div>`;
-      opt.addEventListener('click',()=>{
-        document.querySelectorAll('.imei-option').forEach(o=>o.classList.remove('selected'));
-        opt.classList.add('selected');
-        selectedDevice=dev;
-        // reset manual
-        document.getElementById('input-imei-manual').value='';
-        document.getElementById('select-modello-manual').value='';
-        checkFormValid();
-      });
-      container.appendChild(opt);
-    });
-    // Mostra anche opzione manuale (collassata)
+    renderDeviceOptions(devices);
+    // Search listener
+    if(searchBox){
+      searchBox.oninput=function(){
+        const q=this.value.trim().toLowerCase();
+        const filtered=q?devices.filter(d=>d.imei.includes(q)||d.modello.toLowerCase().includes(q)):devices;
+        renderDeviceOptions(filtered);
+      };
+    }
     manual.style.display='block';
     document.getElementById('manual-toggle-label').textContent='Aggiungi un altro dispositivo manualmente';
-    // chiudi il manuale se era aperto
-    if(manualOpen) toggleManual();
+    if(manualOpen)toggleManual();
   }else{
     list.style.display='none';
     noDevices.style.display='block';
     manual.style.display='block';
     document.getElementById('manual-toggle-label').textContent='Inserisci dispositivo manualmente';
-    // apri automaticamente il manuale
-    if(!manualOpen) toggleManual();
+    if(!manualOpen)toggleManual();
   }
+}
+
+function renderDeviceOptions(devices){
+  const container=document.getElementById('imei-options');
+  container.innerHTML='';
+  if(!devices.length){
+    container.innerHTML='<div style="font-size:13px;color:var(--gray-4);padding:8px 0;font-style:italic;">Nessun dispositivo trovato</div>';
+    return;
+  }
+  devices.forEach(dev=>{
+    const opt=document.createElement('div');
+    opt.className='imei-option';
+    opt.innerHTML=`<div class="imei-radio"></div><div class="imei-info"><div class="imei-code">${dev.imei}</div><div class="imei-model">${dev.modello}</div></div>`;
+    opt.addEventListener('click',()=>{
+      document.querySelectorAll('.imei-option').forEach(o=>o.classList.remove('selected'));
+      opt.classList.add('selected');
+      selectedDevice=dev;
+      document.getElementById('input-imei-manual').value='';
+      document.getElementById('select-modello-manual').value='';
+      checkFormValid();
+    });
+    container.appendChild(opt);
+  });
 }
 
 function toggleManual(){
@@ -548,15 +566,15 @@ async function inviaModulo(){
     else doc.text(ls[0],xc+col.w/2,y+7,{align:'center'});
     xc+=col.w;
   });y+=12;
-  const dH=14;
+  const dH=18;
   const rowVals=['Dispositivo di\ncomunicazione',modello,imei,'','','Vodafone'];
   rowVals.forEach((val,ci)=>{
-    const xPos=cols.slice(0,ci).reduce((s,c)=>s+c.w,mL);
+    const xPos=cols.slice(0,ci).reduce((s,col)=>s+col.w,mL);
     doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.rect(xPos,y,cols[ci].w,dH,'S');
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);
     const ls2=val.split('\n');
-    if(ls2.length===2){doc.text(ls2[0],xPos+2,y+5);doc.text(ls2[1],xPos+2,y+10);}
-    else doc.text(val,xPos+2,y+dH/2+2);
+    if(ls2.length===2){doc.text(ls2[0],xPos+2,y+6);doc.text(ls2[1],xPos+2,y+12);}
+    else{const wrapped=doc.splitTextToSize(val,cols[ci].w-4);doc.text(wrapped,xPos+2,y+6);}
   });y+=dH+6;
   if(note){
     doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.text('Note:',mL,y);
