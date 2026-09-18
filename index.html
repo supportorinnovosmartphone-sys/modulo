@@ -128,7 +128,7 @@
   </div>
   <div class="card" id="card-riepilogo" style="display:none;">
     <div class="card-header"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg> Elenco Asset</div>
-    <div class="card-body" style="padding:0;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:var(--blue);color:white;"><th style="padding:10px 12px;text-align:left;font-size:11px;">Categoria Modello</th><th style="padding:10px 12px;text-align:left;font-size:11px;">Modello</th><th style="padding:10px 12px;text-align:left;font-size:11px;">S.N./IMEI/ICCID</th><th style="padding:10px 12px;text-align:left;font-size:11px;">Fornitore</th></tr></thead><tbody><tr><td style="padding:11px 12px;"><span style="background:var(--blue-light);color:var(--blue);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;">Dispositivo di comunicazione</span></td><td id="riepilogo-modello" style="padding:11px 12px;font-weight:600;">—</td><td id="riepilogo-imei" style="padding:11px 12px;font-family:'IBM Plex Mono',monospace;font-size:12px;">—</td><td style="padding:11px 12px;">Vodafone</td></tr></tbody></table></div>
+    <div class="card-body" style="padding:0;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:var(--blue);color:white;"><th style="padding:10px 12px;text-align:left;font-size:11px;">Categoria Modello</th><th style="padding:10px 12px;text-align:left;font-size:11px;">Modello</th><th style="padding:10px 12px;text-align:left;font-size:11px;">S.N./IMEI/ICCID</th><th style="padding:10px 12px;text-align:left;font-size:11px;">Fornitore</th></tr></thead><tbody id="riepilogo-tbody"><tr><td style="padding:11px 12px;"><span style="background:var(--blue-light);color:var(--blue);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;">Dispositivo di comunicazione</span></td><td id="riepilogo-modello" style="padding:11px 12px;font-weight:600;">—</td><td id="riepilogo-imei" style="padding:11px 12px;font-family:'IBM Plex Mono',monospace;font-size:12px;">—</td><td style="padding:11px 12px;">Vodafone</td></tr></tbody></table></div>
   </div>
   <div class="card">
     <div class="card-header"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 2.828L11.828 13.828A2 2 0 0110.414 14H8v-2.414a2 2 0 01.586-1.414z"/><path d="M3 21h18"/></svg> Firma dell'Assegnatario</div>
@@ -495,11 +495,21 @@ function selectUser(u){
   document.getElementById('field-societa').value=u.societa;
   document.getElementById('field-email').value=u.email;
   dropdownNome.classList.remove('open');
-  const mod=(u.modello_nuovo||'').toLowerCase();
-  if(mod.includes('a56'))autoSelectModello('Samsung A56');
-  else if(mod.includes('xcover'))autoSelectModello('Samsung Xcover 7');
-  else if(mod.includes('tab'))autoSelectModello('Samsung Tab Active 5');
-  else resetRadioButtons(true);
+  const modelli_nuovo=(u.modello_nuovo||'').split(';').map(s=>s.trim()).filter(Boolean);
+  if(modelli_nuovo.length>0){
+    document.querySelectorAll('input[name="modello"]').forEach(r=>{
+      const match=modelli_nuovo.some(m=>r.value.toLowerCase().includes(m.toLowerCase())||m.toLowerCase().includes(r.value.toLowerCase().split(' ').pop()));
+      r.disabled=!match;
+      r.checked=false;
+      if(r.nextElementSibling)r.nextElementSibling.style.cssText=match?'':'opacity:0.35;cursor:not-allowed;border-color:var(--gray-2);background:var(--gray-1);';
+    });
+    if(modelli_nuovo.length===1){
+      const mod=modelli_nuovo[0].toLowerCase();
+      if(mod.includes('a56'))autoSelectModello('Samsung A56');
+      else if(mod.includes('xcover'))autoSelectModello('Samsung Xcover 7');
+      else if(mod.includes('tab'))autoSelectModello('Samsung Tab Active 5');
+    } else { selectedModello=null; }
+  } else { resetRadioButtons(true); }
   checkFormValid();
 }
 
@@ -564,8 +574,32 @@ function renderIMEIDropdown(results){
 }
 
 function updateRiepilogo(){
-  document.getElementById('card-riepilogo').style.display=(selectedModello||inputIMEI.value.trim())?'block':'none';
-  if(inputIMEI.value.trim()&&!selectedIMEI)document.getElementById('riepilogo-imei').innerHTML=`<span style="color:var(--gray-3);font-style:italic;">${inputIMEI.value.trim()}</span>`;
+  const show=selectedDevices.length>0||(selectedModello&&inputIMEI.value.trim());
+  document.getElementById('card-riepilogo').style.display=show?'block':'none';
+  if(!show) return;
+  const tbody=document.getElementById('riepilogo-tbody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+  // Righe per dispositivi già aggiunti
+  selectedDevices.forEach(dev=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td style="padding:11px 12px;"><span style="background:var(--blue-light);color:var(--blue);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;">Dispositivo di comunicazione</span></td>'
+    +'<td style="padding:11px 12px;font-weight:600;">'+dev.modello+'</td>'
+    +'<td style="padding:11px 12px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;">'+dev.imei+'</td>'
+    +'<td style="padding:11px 12px;">Vodafone</td>';
+    tbody.appendChild(tr);
+  });
+  // Riga per IMEI corrente (non ancora aggiunto)
+  const imeiCurr=selectedIMEI||inputIMEI.value.trim();
+  if(selectedModello&&imeiCurr){
+    const tr=document.createElement('tr');
+    const imeiDisplay=selectedIMEI?imeiCurr:'<span style="color:var(--gray-3);font-style:italic;">'+imeiCurr+'</span>';
+    tr.innerHTML='<td style="padding:11px 12px;"><span style="background:var(--blue-light);color:var(--blue);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;">Dispositivo di comunicazione</span></td>'
+    +'<td style="padding:11px 12px;font-weight:600;">'+selectedModello+'</td>'
+    +'<td style="padding:11px 12px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;">'+imeiDisplay+'</td>'
+    +'<td style="padding:11px 12px;">Vodafone</td>';
+    tbody.appendChild(tr);
+  }
 }
 
 // FIRMA
