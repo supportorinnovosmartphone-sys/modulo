@@ -577,16 +577,16 @@ async function inviaModulo(){
     else doc.text(ls[0],xc+col.w/2,y+7,{align:'center'});
     xc+=col.w;
   });y+=12;
-  const dH=18;
+  const dH=14;
   allDevices.forEach(device=>{
     const rowVals=['Dispositivo di\ncomunicazione',device.modello,device.imei,'','','Vodafone'];
     rowVals.forEach((val,ci)=>{
       const xPos=cols.slice(0,ci).reduce((s,col)=>s+col.w,mL);
       doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.rect(xPos,y,cols[ci].w,dH,'S');
-      doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);
       const ls2=val.split('\n');
-      if(ls2.length===2){doc.text(ls2[0],xPos+2,y+6);doc.text(ls2[1],xPos+2,y+12);}
-      else{const wrapped=doc.splitTextToSize(val,cols[ci].w-4);doc.text(wrapped,xPos+2,y+6);}
+      if(ls2.length===2){doc.text(ls2[0],xPos+2,y+5);doc.text(ls2[1],xPos+2,y+10);}
+      else{const wrapped=doc.splitTextToSize(val,cols[ci].w-4);doc.text(wrapped,xPos+2,y+5);}
     });y+=dH;
   });y+=6;
   if(note){

@@ -110,10 +110,20 @@
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg> Dispositivo Assegnato</div>
+    <div class="card-header"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg> Dispositivi Assegnati</div>
     <div class="card-body">
-      <div class="form-row full" style="margin-bottom:20px;"><div class="field"><label>Modello dispositivo <span class="req">*</span></label><div class="radio-group"><div class="radio-btn"><input type="radio" name="modello" id="modello-a56" value="Samsung A56"><label for="modello-a56">Samsung A56</label></div><div class="radio-btn"><input type="radio" name="modello" id="modello-xcover" value="Samsung Xcover 7"><label for="modello-xcover">Samsung Xcover 7</label></div><div class="radio-btn"><input type="radio" name="modello" id="modello-tab" value="Samsung Tab Active 5"><label for="modello-tab">Samsung Tab Active 5</label></div></div></div></div>
-      <div class="form-row full"><div class="field"><label>IMEI <span class="req">*</span></label><div class="autocomplete-wrap"><input type="text" id="input-imei" placeholder="Inizia a digitare l'IMEI..." autocomplete="off" inputmode="numeric"><div class="autocomplete-dropdown" id="dropdown-imei"></div></div></div></div>
+      <div class="form-row full" style="margin-bottom:20px;"><div class="field"><label>Modello dispositivo</label><div class="radio-group"><div class="radio-btn"><input type="radio" name="modello" id="modello-a56" value="Samsung A56"><label for="modello-a56">Samsung A56</label></div><div class="radio-btn"><input type="radio" name="modello" id="modello-xcover" value="Samsung Xcover 7"><label for="modello-xcover">Samsung Xcover 7</label></div><div class="radio-btn"><input type="radio" name="modello" id="modello-tab" value="Samsung Tab Active 5"><label for="modello-tab">Samsung Tab Active 5</label></div></div></div></div>
+      <div class="form-row full"><div class="field"><label>IMEI</label><div class="autocomplete-wrap"><input type="text" id="input-imei" placeholder="Inizia a digitare l'IMEI..." autocomplete="off" inputmode="numeric"><div class="autocomplete-dropdown" id="dropdown-imei"></div></div></div></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+        <button onclick="aggiungiDispositivo()" id="btn-aggiungi" disabled style="background:var(--accent);color:white;border:none;border-radius:6px;padding:8px 18px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Aggiungi
+        </button>
+      </div>
+      <div id="devices-list" style="margin-top:12px;display:none;">
+        <div style="font-size:11px;font-weight:600;color:var(--gray-4);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:8px;">Dispositivi da assegnare <span class="req">*</span></div>
+        <div id="devices-items"></div>
+      </div>
     </div>
   </div>
   <div class="card" id="card-riepilogo" style="display:none;">
@@ -251,6 +261,7 @@ function filtraImeiDisponibili(imeiList) {
 // === FINE BLOCCO ===
 let UTENTI=[],IMEI_PER_MODELLO={'Samsung A56':[],'Samsung Xcover 7':[],'Samsung Tab Active 5':[]};
 let selectedUser=null,selectedIMEI=null,selectedModello=null,firmaVuota=true;
+let selectedDevices=[];
 const oggi=new Date();
 document.getElementById('header-date').textContent=oggi.toLocaleDateString('it-IT',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
@@ -592,8 +603,48 @@ function clearFirma(){
   checkFormValid();
 }
 
+function aggiungiDispositivo(){
+  const imei=selectedIMEI||inputIMEI.value.trim();
+  const modello=selectedModello;
+  if(!imei||!modello) return;
+  // Evita duplicati
+  if(selectedDevices.some(d=>d.imei===imei)) return;
+  selectedDevices.push({imei,modello});
+  renderDevicesList();
+  // Reset IMEI input
+  inputIMEI.value='';selectedIMEI=null;
+  dropdownIMEI.classList.remove('open');
+  document.getElementById('riepilogo-imei').textContent='—';
+  updateRiepilogo();
+  checkFormValid();
+}
+
+function renderDevicesList(){
+  const list=document.getElementById('devices-list');
+  const items=document.getElementById('devices-items');
+  if(selectedDevices.length===0){list.style.display='none';return;}
+  list.style.display='block';
+  items.innerHTML='';
+  selectedDevices.forEach((dev,i)=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--blue-light);border:1px solid var(--blue-mid);border-radius:7px;margin-bottom:6px;font-size:13px;';
+    row.innerHTML='<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg><span style="flex:1"><strong>'+dev.modello+'</strong> &mdash; <span style="font-family:IBM Plex Mono,monospace;font-size:12px;">'+dev.imei+'</span></span><button onclick="rimuoviDispositivo('+i+')" style="background:transparent;border:none;cursor:pointer;color:var(--red);padding:2px;"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>';
+    items.appendChild(row);
+  });
+}
+
+function rimuoviDispositivo(i){
+  selectedDevices.splice(i,1);
+  renderDevicesList();
+  checkFormValid();
+}
+
 function checkFormValid(){
-  const ok=selectedUser&&selectedModello&&(selectedIMEI||inputIMEI.value.trim().length>=15)&&!firmaVuota;
+  // Abilita Aggiungi se modello e IMEI selezionati
+  const imeiVal=selectedIMEI||inputIMEI.value.trim();
+  const btnAgg=document.getElementById('btn-aggiungi');
+  if(btnAgg) btnAgg.disabled=!(selectedModello&&imeiVal.length>=5);
+  const ok=selectedUser&&selectedDevices.length>0&&!firmaVuota;
   document.getElementById('btn-invia').disabled=!ok;
   document.getElementById('status-badge').innerHTML=ok?'<span class="filled-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="12" height="12"><path d="M5 13l4 4L19 7"/></svg>Pronto</span>':'';
 }
@@ -611,9 +662,11 @@ async function uploadToDrive(pdfBlob,filename){
 }
 
 async function inviaModulo(){
-  const nome=selectedUser.nome,email=selectedUser.email,modello=selectedModello;
-  const imei=selectedIMEI||inputIMEI.value.trim(),matricola=selectedUser.matricola,societa=selectedUser.societa;
+  const nome=selectedUser.nome,email=selectedUser.email;
+  const matricola=selectedUser.matricola,societa=selectedUser.societa;
   const data=oggi.toLocaleDateString('it-IT');
+  const allDevices=[...selectedDevices];
+  if(allDevices.length===0) return;
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const PW=210,mL=20,mR=20,cW=170;
@@ -641,15 +694,18 @@ async function inviaModulo(){
     else doc.text(ls[0],xc+col.w/2,y+7,{align:'center'});
     xc+=col.w;
   });y+=12;
-  const dH=14,rowVals=['Dispositivo di\ncomunicazione',modello,imei,'','','Vodafone'];
-  rowVals.forEach((val,ci)=>{
-    const xPos=cols.slice(0,ci).reduce((s,c)=>s+c.w,mL);
-    doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.rect(xPos,y,cols[ci].w,dH,'S');
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);
-    const ls2=val.split('\n');
-    if(ls2.length===2){doc.text(ls2[0],xPos+2,y+5);doc.text(ls2[1],xPos+2,y+10);}
-    else doc.text(val,xPos+2,y+dH/2+2);
-  });y+=dH+10;
+  const dH=14;
+  allDevices.forEach(device=>{
+    const rowVals=['Dispositivo di\ncomunicazione',device.modello,device.imei,'','','Vodafone'];
+    rowVals.forEach((val,ci)=>{
+      const xPos=cols.slice(0,ci).reduce((s,col)=>s+col.w,mL);
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.rect(xPos,y,cols[ci].w,dH,'S');
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+      const ls2=val.split('\n');
+      if(ls2.length===2){doc.text(ls2[0],xPos+2,y+5);doc.text(ls2[1],xPos+2,y+10);}
+      else{const wrapped=doc.splitTextToSize(val,cols[ci].w-4);doc.text(wrapped,xPos+2,y+5);}
+    });y+=dH;
+  });y+=10;
   doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.text('Con i migliori saluti',mL,y);y+=5;
   doc.setFont('helvetica','bold');doc.text('ICT A2A',mL,y);y+=16;
   doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('Data',mL,y);doc.text("Firma dell'assegnatario",PW-mR,y,{align:'right'});y+=5;
@@ -660,21 +716,21 @@ async function inviaModulo(){
   const np=nome.replace(/[^a-zA-Z0-9]/g,'_');
   const fn=`Modulo_Assegnazione_${np}_${data.replace(/\//g,'-')}.pdf`;
   doc.save(fn);
-  const _logData={nome,matricola,email,modello,imei,dataOggi:data,filename:fn};
-  window._registroData=_logData;
+  window._assegnazioneData={nome,matricola,email,devices:allDevices,filename:fn,dataOggi:data};
   window._emailAperta=false;
   uploadToDrive(doc.output('blob'),fn);
   // Salva i dati per il mailto manuale
   window._mailtoData={
     sogg:encodeURIComponent('Modulo Assegnazione - '+email),
-    corpo:encodeURIComponent('Gentile Utente,\n\nIn allegato il modulo di assegnazione del dispositivo aziendale.\n\nAssegnatario: '+nome+'\nMatricola: '+matricola+'\nModello: '+modello+'\nIMEI: '+imei+'\nData: '+data+'\n\nTeam Supporto Rinnovo Smartphone'),
-   };
-  window._registroData={nome,matricola,email,modello,imei,dataOggi:data,filename:fn};
+    corpo:encodeURIComponent('Gentile team,\n\nIn allegato il modulo di assegnazione del dispositivo aziendale.\n\nAssegnatario: '+nome+'\nMatricola: '+matricola+'\n\nDispositivi assegnati:\n'+allDevices.map(function(d){return d.modello+' / IMEI: '+d.imei;}).join('\n')+'\n\nData: '+data+'\n\nICT A2A'),
+  };
+
   const btnE=document.getElementById('btn-invia-email');
   if(btnE){btnE.disabled=false;btnE.style.background='var(--accent)';btnE.innerHTML='<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg> Invia email';}
   const btnN=document.getElementById('btn-nuovo-modulo');
   if(btnN){btnN.disabled=true;btnN.style.cssText='background:var(--gray-2);color:var(--gray-3);border:1.5px solid var(--gray-2);border-radius:8px;padding:13px 24px;font-family:\'IBM Plex Sans\',sans-serif;font-size:14px;font-weight:600;cursor:not-allowed;display:flex;align-items:center;gap:8px;';}
-  document.getElementById('success-msg').innerHTML='Modulo compilato per <strong>'+nome+'</strong><br>Modello: <strong>'+modello+'</strong> &middot; IMEI: <strong>'+imei+'</strong>';
+  const devSummary=allDevices.map(function(d){return '<strong>'+d.modello+'</strong> &middot; IMEI: '+d.imei;}).join('<br>');
+  document.getElementById('success-msg').innerHTML='Modulo compilato per <strong>'+nome+'</strong><br>'+devSummary;
   document.getElementById('success-overlay').classList.add('show');
 }
 
@@ -708,9 +764,21 @@ function inviaEmail(){
     const a=document.createElement('a');
     a.href='mailto:'+EMAIL_SUPPORT+'?subject='+window._mailtoData.sogg+'&body='+window._mailtoData.corpo;
     a.click();
-    // Salva riga registro con orario
-    if(window._registroData) salvaRigaRegistro(window._registroData);
-    window._registroData=null;
+    // Salva una riga per ogni dispositivo assegnato
+    if(window._assegnazioneData){
+      window._assegnazioneData.devices.forEach(function(dev){
+        salvaRigaRegistro({
+          nome:window._assegnazioneData.nome,
+          matricola:window._assegnazioneData.matricola,
+          email:window._assegnazioneData.email,
+          modello:dev.modello,
+          imei:dev.imei,
+          dataOggi:window._assegnazioneData.dataOggi,
+          filename:window._assegnazioneData.filename
+        });
+      });
+      window._assegnazioneData=null;
+    }
     // Aggiorna pulsante invia email -> verde
     const btnEmail=document.getElementById('btn-invia-email');
     if(btnEmail){
@@ -728,14 +796,15 @@ function inviaEmail(){
 }
 
 function chiudiSuccesso(){
-  window._registroData=null;
+  window._assegnazioneData=null;
   document.getElementById('success-overlay').classList.remove('show');
   resetForm();
 }
 function resetForm(){
-  selectedUser=null;selectedIMEI=null;selectedModello=null;
+  selectedUser=null;selectedIMEI=null;selectedModello=null;selectedDevices=[];
   inputNome.value='';inputIMEI.value='';
   clearUserFields();
+  renderDevicesList();
   document.getElementById('riepilogo-modello').textContent='—';
   document.getElementById('riepilogo-imei').textContent='—';
   document.getElementById('card-riepilogo').style.display='none';
